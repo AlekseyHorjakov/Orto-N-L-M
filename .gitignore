@@ -1,51 +1,32 @@
 # =========================
-# Environment
+# Environment / secrets
 # =========================
-
 .env
 *.env
 
 # =========================
-# Python
+# Python / IDE / OS / logs
 # =========================
-
 __pycache__/
 *.pyc
-
-# =========================
-# IDE
-# =========================
-
 .vscode/
 .idea/
-
-# =========================
-# Logs
-# =========================
-
 *.log
-
-# =========================
-# Operating System
-# =========================
-
 .DS_Store
 Thumbs.db
 
 # =========================
 # Databases
 # =========================
-
 *.sqlite
 
 # =========================
-# n8n
+# n8n private exports / backups
 # =========================
-
+workflows/*-private.json
 workflows/*.backup.json
 
 # =========================
 # Internal AI Documentation
 # =========================
-
 AI-CONTEXT.md
