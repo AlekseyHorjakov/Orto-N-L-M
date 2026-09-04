@@ -1,264 +1,119 @@
-# Process JSON v1.0
+# Orto-N-L-M — Project Contract
 
-```json
-{
-  "metadata": {
-    "process_name": "",
-    "position": ""
-  },
-  "goal": "",
-  "steps": [
-    {
-      "id": "step_001",
-      "title": "",
-      "instruction": [""],
-      "expected_result": "",
-      "attachments": [],
-      "exceptions": [],
-      "tips": [],
-      "notes": ""
-    }
-  ]
-}
+## 1. Product model
+
+```text
+Должность → Процесс → Инструкция → Тест → Результат
 ```
 
-## Описание
+**Process JSON — канонический источник знаний.** Инструкции и тесты являются производными представлениями.
 
-### metadata
+## 2. Current stack
 
-- process_name — название процесса.
-- position — должность сотрудника.
-
-### goal
-
-Цель процесса.
-
-### steps
-
-Массив шагов процесса.
-
-#### step.id
-
-Уникальный идентификатор шага.
-
-#### step.title
-
-Название шага.
-
-#### step.instruction
-
-Последовательность действий для выполнения шага.
-
-#### step.expected_result
-
-Ожидаемый результат выполнения шага.
-
-#### step.attachments
-
-Ссылки на связанные материалы (изображения, PDF, DOCX, XLSX, видео и т.д.).
-
-#### step.exceptions
-
-Нестандартные ситуации и порядок действий.
-
-#### step.tips
-
-Полезные рекомендации.
-
-#### step.notes
-
-Дополнительные замечания.
-
----
-
-# Database Schema v1.1
-
-## Таблицы
-
-### positions
-
-Назначение:
-
-Хранение списка должностей.
-
-Поля:
-
-- id
-- name
-
----
-
-### processes
-
-Назначение:
-
-Хранение процессов и их Process JSON.
-
-Поля:
-
-- id
-- position_id
-- name
-- goal
-- process_json
-
----
-
-### files
-
-Назначение:
-
-Хранение информации о прикрепленных файлах.
-
-Поля:
-
-- id
-- original_name
-- storage_path
-- mime_type
-- file_type
-
----
-
-### interview_sessions
-
-Назначение:
-
-Хранение состояния интервью пользователя.
-
-Используется для определения наличия активной сессии интервью.
-
-Поля:
-
-- id
-- user_id
-- status
-- created_at
-- updated_at
-
-Таблица не хранит:
-
-- Process JSON;
-- историю сообщений;
-- знания процесса.
-
-Допускается только одно активное интервью на пользователя.
-
-История завершенных интервью поддерживается отдельно.
-
----
-
-# Транспорт
-
-Первой реализацией клиента является Telegram.
-
-Telegram используется только как демонстрационный транспорт.
-
-Вся бизнес-логика работает исключительно через Input Gateway.
-
-Замена Telegram на Web, Desktop или другой интерфейс не должна требовать изменения бизнес-логики системы.
-
----
-
-# Unified Message v1.0
-
-```json
-{
-  "source": "",
-  "user": {
-    "id": "",
-    "first_name": ""
-  },
-  "chat": {
-    "id": "",
-    "type": ""
-  },
-  "message": {
-    "id": "",
-    "type": "",
-    "text": "",
-    "timestamp": 0
-  }
-}
-```
-
----
-
-# Unified Agent Response v1.0
-
-Interview Agent всегда возвращает ответ в едином формате.
-
-```json
-{
-  "status": "continue | completed",
-  "message": "",
-  "process_json": null
-}
-```
-
-Данный контракт используется между Interview Agent и Workflow.
-
-Workflow принимает решения только на основании полей Unified Agent Response и не анализирует свободный текст LLM.
-
----
-
-# Interview Workflow
-
-Interview Workflow состоит из двух частей.
-
-## Инфраструктура
-
-- Telegram Trigger
-- Input Gateway
-- Interview Session Router
-- Message Type Router
-- Navigation Router
-- Parse Agent Response
+- n8n 2.9.4 Self Hosted
 - PostgreSQL
+- OpenAI API / gpt-4.1-mini
+- Telegram Bot API
+- JavaScript
+- Docker / Ubuntu Server 24.04 LTS
 
-## Бизнес-логика
+## 3. Current workflow
 
-Interview Agent отвечает исключительно за проведение интервью.
+Актуальный рабочий экспорт: `Orto-N Learning Manager (33).json`.
 
-Workflow отвечает только за:
+Workflow содержит 75 узлов и активен. Основные контуры:
 
-- маршрутизацию сообщений;
-- управление состоянием интервью;
-- взаимодействие с PostgreSQL;
-- передачу данных между компонентами.
-
-Interview Agent не взаимодействует напрямую с PostgreSQL и не знает об инфраструктуре n8n.
-
----
-
-## Последовательность работы
+### Telegram / routing
 
 ```text
 Telegram Trigger
-        ↓
+ ↓
 Input Gateway
-        ↓
+ ↓
 Interview Session Router
-        ↓
-IF (есть активное интервью?)
-        ├── YES → Interview Agent
-        │
-        └── NO → Message Type Router
-                    ↓
-             Navigation Router
-                    ↓
-          IF (route == interview)
-                ├── YES
-                │      ├── Create Interview Session (PostgreSQL)
-                │      └── Interview Agent
-                │
-                └── NO → Navigation
+ ↓
+Message Type Router
+ ↓
+Navigation Router / media processing
 ```
 
-После выполнения Interview Agent ответ передается в Parse Agent Response.
+Навигация выполняется детерминированно. AI не принимает решения о маршрутизации.
 
-Workflow принимает решение:
+### Интервью
 
-- продолжить интервью;
-- завершить интервью;
-- сохранить Process JSON после завершения интервью.
+```text
+Create Interview Session
+ ↓
+Interview Agent
+ ↓
+Parse Agent Response
+ ↓
+Normalize Interview
+ ↓
+Save Interview
+ ↓
+Get Saved Process
+ ↓
+Instruction Generator
+ ↓
+HTML / Telegram
+```
+
+Interview Agent проводит адаптивное интервью. Максимум — 15 содержательных вопросов. Запросы необходимых фото/скриншотов в этот лимит не входят.
+
+### Вложения
+
+Изображения, полученные во время интервью, связываются с конкретными шагами Process JSON. При формировании инструкции `Prepare HTML Attachments` использует канонические `file_path`, `file_name`, `mime_type` и описание материала.
+
+### Руководитель
+
+Меню содержит только:
+
+- `👤 Должности`;
+- `📚 Инструкции`.
+
+Руководитель может добавлять, переименовывать и удалять должности с подтверждением. Перед удалением должности удаляются связанные процессы, после чего удаляется сама должность.
+
+Выдача готовой инструкции руководителю выполняется без AI.
+
+### Стажёр
+
+Стажёр выбирает должность, получает инструкцию и может пройти тест. Тест строится только по Process JSON, содержит до 15 качественных вопросов, по 4 варианта ответа на каждый вопрос и один правильный вариант. Проверка ответа выполняется механически. Варианты перемешиваются с сохранением правильного ответа.
+
+Состояние теста хранится в `n8n_chat_histories`. Итог формируется в HTML и отправляется файлом в Telegram.
+
+## 4. Database contract
+
+### `positions`
+Справочник должностей.
+
+### `processes`
+Процессы, связанные с должностями, включая `process_json`.
+
+### `files`
+Метаданные файлов.
+
+### `interview_sessions`
+Состояние жизненного цикла интервью и его JSON state. Для пользователя допускается одно активное интервью.
+
+### `manager_sessions`
+Временное состояние действий руководителя, например редактирование должности.
+
+### `n8n_chat_histories`
+Служебная таблица n8n для PostgreSQL Chat Memory и состояния тестирования.
+
+## 5. Access control
+
+Доступ руководителя определяется whitelist Telegram chat ID внутри workflow. Специалист работает со своими процессами через должность, определённую по завершённой сессии интервью.
+
+## 6. Working rules
+
+- Не переписывать работающую архитектуру без доказанной причины.
+- Сначала проверять актуальный workflow, затем менять.
+- Не переносить версии и поведение нод из других проектов.
+- Process JSON не заменять производными представлениями.
+- Вложения не дублировать и не изобретать повторно.
+
+## 7. Public repository / secrets
+
+Рабочий экспорт содержит HTTP Request узлы с токеном Telegram-бота. Поскольку репозиторий публичный, живой токен в GitHub не публикуется. Публичная документация фиксирует наличие таких узлов и использует исходный n8n-экспорт как источник восстановления рабочей конфигурации.
