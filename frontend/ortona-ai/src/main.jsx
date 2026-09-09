@@ -24,6 +24,12 @@ const defaultInstructions=[
 ];
 
 function App(){
+ const [authenticated,setAuthenticated]=useState(false);
+ const [login,setLogin]=useState("");
+ const [password,setPassword]=useState("");
+ const [showPassword,setShowPassword]=useState(false);
+ const [loginError,setLoginError]=useState("");
+
  const [active,setActive]=useState("manager");
  const [section,setSection]=useState("home");
 
@@ -245,6 +251,16 @@ const startTest=(item)=>{
   setMessage("");
  };
 
+ const handleLogin=()=>{
+  if(login.trim()==="admin" && password==="admin"){
+   setAuthenticated(true);
+   setLoginError("");
+   setPassword("");
+  }else{
+   setLoginError("Неверный логин или пароль");
+  }
+ };
+
  const specialistInstructions=instructions.filter(item=>{
   const matchesPosition=!specialistPosition||item.position===specialistPosition;
   const q=instructionSearch.trim().toLowerCase();
@@ -253,6 +269,72 @@ const startTest=(item)=>{
    item.text.toLowerCase().includes(q);
   return matchesPosition&&matchesSearch;
  });
+
+ if(!authenticated){
+  return <div className="login-page">
+   <div className="login-glow login-glow-one"></div>
+   <div className="login-glow login-glow-two"></div>
+
+   <div className="login-brand">
+    <img src="./ortho-n-logo.png" alt="ORTO-N"/>
+    <div>
+     <strong>Ортона-AI</strong>
+     <span>Система обучения сотрудников</span>
+    </div>
+   </div>
+
+   <div className="login-content">
+    <div className="login-robot-wrap">
+     <img className="login-robot" src="./ortona-login-robot.png" alt="Ортона-AI"/>
+    </div>
+
+    <div className="login-card">
+     <div className="login-card-logo">
+      <img src="./ortho-n-logo.png" alt="ORTO-N"/>
+     </div>
+
+     <div className="login-card-heading">
+      <span>ДОБРО ПОЖАЛОВАТЬ</span>
+      <h1>Вход в систему</h1>
+      <p>Введите данные для доступа к Ортона-AI</p>
+     </div>
+
+     <label className="login-field">
+      <span>Логин</span>
+      <input type="text" value={login}
+       onChange={e=>{setLogin(e.target.value);setLoginError("");}}
+       onKeyDown={e=>e.key==="Enter"&&handleLogin()}
+       placeholder="Введите логин" autoComplete="username"/>
+     </label>
+
+     <label className="login-field">
+      <span>Пароль</span>
+      <div className="login-password">
+       <input type={showPassword?"text":"password"} value={password}
+        onChange={e=>{setPassword(e.target.value);setLoginError("");}}
+        onKeyDown={e=>e.key==="Enter"&&handleLogin()}
+        placeholder="Введите пароль" autoComplete="current-password"/>
+       <button type="button" onClick={()=>setShowPassword(!showPassword)}>
+        {showPassword?"Скрыть":"Показать"}
+       </button>
+      </div>
+     </label>
+
+     {loginError&&<div className="login-error">{loginError}</div>}
+
+     <button className="login-submit" onClick={handleLogin}>
+      Войти
+      <ArrowLeft size={19} style={{transform:"rotate(180deg)"}}/>
+     </button>
+    </div>
+   </div>
+
+   <div className="login-footer">
+    <span>ОРТО-N</span>
+    <span>ЗАБОТА • ТЕХНОЛОГИИ • РЕЗУЛЬТАТ</span>
+   </div>
+  </div>;
+ }
 
  return <div className="app">
 
@@ -976,11 +1058,3 @@ const startTest=(item)=>{
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
-
-
-
-
-
-
-
-
