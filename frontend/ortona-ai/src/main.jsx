@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Bell, ChevronDown, ChevronRight, Users, UserRound, GraduationCap, MessageCircle, BriefcaseBusiness, FileText, Send, Paperclip, Plus, Pencil, Trash2, X, Check, ArrowLeft, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Users, UserRound, GraduationCap, MessageCircle, BriefcaseBusiness, FileText, Send, Paperclip, Plus, Pencil, Trash2, X, Check, ArrowLeft, Search } from "lucide-react";
 import "./styles.css";
 
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
+const getInitialView = role => {
+ if(role === "manager") return {active:"manager",section:"home"};
+ if(role === "specialist") return {active:"specialist",section:"chat"};
+ return {active:"trainee",section:"chat"};
+};
+
 const menu=[
- {key:"manager",label:"Руководитель",icon:UserRound},
- {key:"specialist",label:"Специалист",icon:Users},
- {key:"trainee",label:"Стажер",icon:GraduationCap},
- {key:"question",label:"Задать вопрос",icon:MessageCircle}
+ {key:"manager",label:"Руководитель",icon:UserRound,roles:["manager"]},
+ {key:"specialist",label:"Специалист",icon:Users,roles:["manager","specialist"]},
+ {key:"trainee",label:"Стажер",icon:GraduationCap,roles:["manager","specialist","trainee"]},
+ {key:"question",label:"Задать вопрос",icon:MessageCircle,roles:["manager","specialist","trainee"]}
 ];
 
-const defaultPositions=["Администратор","Протезист","Ортезист"];
 const testQuestions=[
  {question:"Как следует действовать при выполнении этой инструкции?",options:["Следовать установленному порядку действий","Пропустить обязательные этапы","Действовать без проверки"],correct:0},
  {question:"Что является главным при выполнении рабочей инструкции?",options:["Соблюдение установленного порядка","Скорость любой ценой","Пропуск документации"],correct:0},
@@ -29,12 +36,13 @@ function App(){
  const [password,setPassword]=useState("");
  const [showPassword,setShowPassword]=useState(false);
  const [loginError,setLoginError]=useState("");
+ const [currentUser,setCurrentUser]=useState(null);
 
  const [active,setActive]=useState("manager");
  const [section,setSection]=useState("home");
 
- const [positions,setPositions]=useState(()=>JSON.parse(localStorage.getItem("ortona_positions")||"null")||defaultPositions);
- const [instructions,setInstructions]=useState(()=>JSON.parse(localStorage.getItem("ortona_instructions")||"null")||defaultInstructions);
+ const [positions,setPositions]=useState([]);
+ const [instructions,setInstructions]=useState([]);
 
  const [editingPosition,setEditingPosition]=useState(null);
  const [positionDraft,setPositionDraft]=useState("");
@@ -65,14 +73,165 @@ function App(){
  const [interviewStep,setInterviewStep]=useState(1);
  const [interviewAnswer,setInterviewAnswer]=useState("");
 
- useEffect(()=>localStorage.setItem("ortona_positions",JSON.stringify(positions)),[positions]);
- useEffect(()=>localStorage.setItem("ortona_instructions",JSON.stringify(instructions)),[instructions]);
+ const [users,setUsers]=useState([]);
+ const [usersLoading,setUsersLoading]=useState(false);
+ const [userError,setUserError]=useState("");
+ const [addingUser,setAddingUser]=useState(false);
+ const [userDraft,setUserDraft]=useState({full_name:"",username:"",password:"",role:"specialist"});
+ const [editingUser,setEditingUser]=useState(null);
+ const [userEditDraft,setUserEditDraft]=useState({full_name:"",role:"specialist"});
+
+ useEffect(()=>{
+  const token=localStorage.getItem("ortona_access_token");
+
+  if(!token)return;
+
+  fetch(`${API_URL}/auth/me`,{
+   headers:{
+    Authorization:`Bearer ${token}`
+   }
+  })
+   .then(async response=>{
+    if(!response.ok)throw new Error("Сессия недействительна");
+    return response.json();
+   })
+   .then(user=>{
+    setCurrentUser(user);
+    setAuthenticated(true);
+    const initialView=getInitialView(user.role);
+    setActive(initialView.active);
+    setSection(initialView.section);
+   })
+   .catch(()=>{
+    localStorage.removeItem("ortona_access_token");
+    localStorage.removeItem("ortona_user");
+    setCurrentUser(null);
+    setAuthenticated(false);
+   });
+ },[]);
+
+ useEffect(()=>{
+  if(!authenticated)return;
+
+  const token=localStorage.getItem("ortona_access_token");
+  if(!token)return;
+
+  const headers={Authorization:`Bearer ${token}`};
+
+  fetch(`${API_URL}/positions`,{
+   headers
+  })
+   .then(async response=>{
+    if(!response.ok)throw new Error("Не удалось загрузить должности");
+    return response.json();
+   })
+   .then(data=>{
+    setPositions(data);
+   })
+   .catch(error=>{
+    console.error("Ошибка загрузки должностей:",error);
+    setPositions([]);
+   });
+
+  fetch(`${API_URL}/processes`,{
+   headers
+  })
+   .then(async response=>{
+    if(!response.ok)throw new Error("Не удалось загрузить инструкции");
+    return response.json();
+   })
+   .then(data=>{
+    setInstructions(data);
+   })
+   .catch(error=>{
+    console.error("Ошибка загрузки инструкций:",error);
+    setInstructions([]);
+   });
+ },[authenticated]);
 
  const selectMenu=key=>{
   setActive(key);
-  setSection(key==="manager"?"home":"chat");
+  setSection(key==="manager"?"home":key==="users"?"users":"chat");
   setSelectedInstruction(null);
  };
+
+ const getAuthHeaders=()=>{
+  const token=localStorage.getItem("ortona_access_token");
+  return token?{Authorization:`Bearer ${token}`} : {};
+ };
+
+ const loadUsers=async()=>{
+  setUsersLoading(true);
+  setUserError("");
+
+  try{
+   const response=await fetch(`${API_URL}/users`,{
+    headers:getAuthHeaders()
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось загрузить пользователей");
+   }
+
+   setUsers(data);
+  }catch(error){
+   setUserError(error.message||"Не удалось загрузить пользователей");
+  }finally{
+   setUsersLoading(false);
+  }
+ };
+
+ const openUsers=()=>{
+  setSection("users");
+  setAddingUser(false);
+  setEditingUser(null);
+  setUserDraft({full_name:"",username:"",password:"",role:"specialist"});
+  loadUsers();
+ };
+
+ const saveNewUser=async()=>{
+  const full_name=userDraft.full_name.trim();
+  const username=userDraft.username.trim();
+  const password=userDraft.password;
+
+  if(!full_name||!username||!password){
+   setUserError("Заполните ФИО, логин и пароль");
+   return;
+  }
+
+  setUserError("");
+
+  try{
+   const response=await fetch(`${API_URL}/users`,{
+    method:"POST",
+    headers:{
+     ...getAuthHeaders(),
+     "Content-Type":"application/json"
+    },
+    body:JSON.stringify({
+     username,
+     full_name,
+     password,
+     role:userDraft.role
+    })
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось создать пользователя");
+   }
+
+   setUserDraft({full_name:"",username:"",password:"",role:"specialist"});
+   setAddingUser(false);
+   await loadUsers();
+  }catch(error){
+   setUserError(error.message||"Не удалось создать пользователя");
+  }
+ };
+
 
  const closeTraineeInstruction=()=>{
   if(selectedTraineeInstruction){
@@ -152,53 +311,205 @@ const startTest=(item)=>{
   setPositionDraft("");
  };
 
- const saveNewPosition=()=>{
+ const loadPositions=async()=>{
+  try{
+   const response=await fetch(`${API_URL}/positions`,{
+    headers:getAuthHeaders()
+   });
+
+   const data=await response.json();
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось загрузить должности");
+   }
+
+   setPositions(data);
+  }catch(error){
+   console.error("Ошибка загрузки должностей:",error);
+  }
+ };
+ const saveNewPosition=async()=>{
   const value=positionDraft.trim();
   if(!value)return;
-  setPositions([...positions,value]);
-  setPositionDraft("");
-  setAddingPosition(false);
+
+  try{
+   const response=await fetch(`${API_URL}/positions`,{
+    method:"POST",
+    headers:{"Content-Type":"application/json",...getAuthHeaders()},
+    body:JSON.stringify({name:value})
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось добавить должность");
+   }
+
+   setPositions(prev=>[...prev,data]);
+   setPositionDraft("");
+   setAddingPosition(false);
+  }catch(error){
+   alert(error.message||"Не удалось добавить должность");
+  }
  };
 
  const startEditPosition=index=>{
   setEditingPosition(index);
   setAddingPosition(false);
-  setPositionDraft(positions[index]);
+  setPositionDraft(positions[index]?.name||"");
  };
 
- const savePosition=()=>{
+
+const savePosition=async()=>{
   const value=positionDraft.trim();
   if(!value||editingPosition===null)return;
-  setPositions(positions.map((p,i)=>i===editingPosition?value:p));
-  setEditingPosition(null);
-  setPositionDraft("");
+
+  const position=positions[editingPosition];
+  if(!position?.id){
+   alert("У должности отсутствует ID базы данных");
+   return;
+  }
+
+  try{
+   const response=await fetch(`${API_URL}/positions/${position.id}`,{
+    method:"PUT",
+    headers:{"Content-Type":"application/json",...getAuthHeaders()},
+    body:JSON.stringify({name:value})
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось изменить должность");
+   }
+
+   setPositions(prev=>prev.map(item=>item.id===position.id?data:item));
+   setEditingPosition(null);
+   setPositionDraft("");
+  }catch(error){
+   alert(error.message||"Не удалось изменить должность");
+  }
  };
 
- const removePosition=index=>{
-  if(window.confirm(`Удалить должность «${positions[index]}»?`))
-   setPositions(positions.filter((_,i)=>i!==index));
+ const removePosition=async index=>{
+  const position=positions[index];
+  if(!position)return;
+
+  if(!window.confirm(`Удалить должность «${position.name||position}»?`))return;
+
+  try{
+   const positionId=position.id;
+
+   if(!positionId){
+    throw new Error("У должности отсутствует ID базы данных");
+   }
+
+   const response=await fetch(`${API_URL}/positions/${positionId}`,{
+    method:"DELETE",
+    headers:getAuthHeaders()
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось удалить должность");
+   }
+
+   setPositions(prev=>prev.filter(item=>item.id!==positionId));
+  }catch(error){
+   alert(error.message||"Не удалось удалить должность");
+  }
  };
 
  const startAddInstruction=()=>{
   setAddingInstruction(true);
   setEditingInstruction(null);
-  setInstructionDraft({title:"",position:positions[0]||"",text:""});
+  setInstructionDraft({title:"",position:positions[0]?.name||"",text:""});
  };
 
- const saveInstruction=()=>{
+ const startEditUser=user=>{
+  setAddingUser(false);
+  setUserError("");
+  setEditingUser(user.id);
+  setUserEditDraft({full_name:user.full_name||"",role:user.role});
+ };
+
+ const saveEditedUser=async()=>{
+  const full_name=userEditDraft.full_name.trim();
+
+  if(!full_name||editingUser===null){
+   setUserError("Введите ФИО сотрудника");
+   return;
+  }
+
+  try{
+   const response=await fetch(`${API_URL}/users/${editingUser}`,{
+    method:"PUT",
+    headers:{...getAuthHeaders(),"Content-Type":"application/json"},
+    body:JSON.stringify({full_name,role:userEditDraft.role})
+   });
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok)throw new Error(data?.detail||"Не удалось изменить пользователя");
+
+   setUsers(prev=>prev.map(user=>user.id===editingUser?data:user));
+   setEditingUser(null);
+  }catch(error){
+   setUserError(error.message||"Не удалось изменить пользователя");
+  }
+ };
+
+ const removeUser=async user=>{
+  if(!window.confirm(`Удалить пользователя «${user.full_name||user.username}»?`))return;
+
+  try{
+   const response=await fetch(`${API_URL}/users/${user.id}`,{
+    method:"DELETE",
+    headers:getAuthHeaders()
+   });
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok)throw new Error(data?.detail||"Не удалось удалить пользователя");
+
+   setUsers(prev=>prev.filter(item=>item.id!==user.id));
+  }catch(error){
+   setUserError(error.message||"Не удалось удалить пользователя");
+  }
+ };
+
+ const saveInstruction=async()=>{
   const title=instructionDraft.title.trim();
   const text=instructionDraft.text.trim();
-  if(!title||!text||!instructionDraft.position)return;
+  const position=positions.find(item=>item.name===instructionDraft.position);
 
-  setInstructions([...instructions,{
-   id:Date.now(),
-   title,
-   position:instructionDraft.position,
-   text
-  }]);
+  if(!title||!text||!position)return;
 
-  setAddingInstruction(false);
-  setInstructionDraft({title:"",position:"",text:""});
+  try{
+   const response=await fetch(`${API_URL}/processes`,{
+    method:"POST",
+    headers:{
+     "Content-Type":"application/json",
+     ...getAuthHeaders()
+    },
+    body:JSON.stringify({
+     name:title,
+     position_id:position.id,
+     goal:text
+    })
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось добавить инструкцию");
+   }
+
+   setInstructions(prev=>[...prev,data]);
+   setAddingInstruction(false);
+   setInstructionDraft({title:"",position:"",text:""});
+  }catch(error){
+   alert(error.message||"Не удалось добавить инструкцию");
+  }
  };
 
  const startEditInstruction=item=>{
@@ -211,25 +522,64 @@ const startTest=(item)=>{
   });
  };
 
- const saveEditedInstruction=()=>{
+ const saveEditedInstruction=async()=>{
   const title=instructionDraft.title.trim();
   const text=instructionDraft.text.trim();
-  if(!title||!text||!instructionDraft.position)return;
+  const position=positions.find(item=>item.name===instructionDraft.position);
 
-  setInstructions(instructions.map(item=>
-   item.id===editingInstruction
-    ? {...item,title,position:instructionDraft.position,text}
-    : item
-  ));
+  if(!title||!text||!position||editingInstruction===null)return;
 
-  setEditingInstruction(null);
-  setInstructionDraft({title:"",position:"",text:""});
+  try{
+   const response=await fetch(`${API_URL}/processes/${editingInstruction}`,{
+    method:"PUT",
+    headers:{
+     "Content-Type":"application/json",
+     ...getAuthHeaders()
+    },
+    body:JSON.stringify({
+     name:title,
+     position_id:position.id,
+     goal:text
+    })
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось изменить инструкцию");
+   }
+
+   setInstructions(prev=>prev.map(item=>item.id===editingInstruction?data:item));
+   setEditingInstruction(null);
+   setInstructionDraft({title:"",position:"",text:""});
+  }catch(error){
+   alert(error.message||"Не удалось изменить инструкцию");
+  }
  };
 
- const removeInstruction=id=>{
+ const removeInstruction=async id=>{
   const item=instructions.find(x=>x.id===id);
-  if(item&&window.confirm(`Удалить инструкцию «${item.title}»?`))
-   setInstructions(instructions.filter(x=>x.id!==id));
+
+  if(!item||!window.confirm(`Удалить инструкцию «${item.title}»?`))return;
+
+  try{
+   const response=await fetch(`${API_URL}/processes/${id}`,{
+    method:"DELETE",
+    headers:getAuthHeaders()
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось удалить инструкцию");
+   }
+
+   setInstructions(prev=>prev.filter(x=>x.id!==id));
+   if(selectedInstruction?.id===id)setSelectedInstruction(null);
+   if(selectedTraineeInstruction?.id===id)setSelectedTraineeInstruction(null);
+  }catch(error){
+   alert(error.message||"Не удалось удалить инструкцию");
+  }
  };
 
   const sendMessage=()=>{
@@ -251,14 +601,60 @@ const startTest=(item)=>{
   setMessage("");
  };
 
- const handleLogin=()=>{
-  if(login.trim()==="admin" && password==="admin"){
+ const handleLogin=async()=>{
+  const username=login.trim();
+
+  if(!username||!password){
+   setLoginError("Введите логин и пароль");
+   return;
+  }
+
+  try{
+   setLoginError("");
+
+   const body=new URLSearchParams();
+   body.append("username",username);
+   body.append("password",password);
+
+   const response=await fetch(`${API_URL}/auth/login`,{
+    method:"POST",
+    headers:{
+     "Content-Type":"application/x-www-form-urlencoded"
+    },
+    body:body.toString()
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Неверный логин или пароль");
+   }
+
+   localStorage.setItem("ortona_access_token",data.access_token);
+   localStorage.setItem("ortona_user",JSON.stringify(data.user));
+
+   setCurrentUser(data.user);
    setAuthenticated(true);
+   const initialView=getInitialView(data.user.role);
+   setActive(initialView.active);
+   setSection(initialView.section);
    setLoginError("");
    setPassword("");
-  }else{
-   setLoginError("Неверный логин или пароль");
+  }catch(error){
+   const message=error instanceof TypeError
+    ? "Не удалось подключиться к локальному серверу. Проверьте, что backend запущен на порту 8000."
+    : error.message;
+   setLoginError(message||"Не удалось выполнить вход");
   }
+ };
+
+ const handleLogout=()=>{
+  localStorage.removeItem("ortona_access_token");
+  localStorage.removeItem("ortona_user");
+  setCurrentUser(null);
+  setAuthenticated(false);
+  setActive("manager");
+  setSection("home");
  };
 
  const specialistInstructions=instructions.filter(item=>{
@@ -272,6 +668,19 @@ const startTest=(item)=>{
 
  if(!authenticated){
   return <div className="login-page">
+   <style>{`
+    @media (max-width:700px){
+     .login-page{min-height:100svh;height:auto;overflow-y:auto;padding:14px 12px 20px;box-sizing:border-box;}
+     .login-brand{position:relative;top:auto;left:auto;width:100%;margin:0 auto 6px;padding:0;justify-content:center;}
+     .login-content{width:100%;max-width:420px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:6px;}
+     .login-robot-wrap{width:100%;height:110px;display:flex;align-items:flex-end;justify-content:center;overflow:visible;margin:0;}
+     .login-robot{display:block;max-width:155px;max-height:105px;width:auto;height:auto;object-fit:contain;}
+     .login-card{width:100%;max-width:420px;margin:0;box-sizing:border-box;}
+     .login-card-logo{display:none;}
+     .login-card-heading{margin-top:0;}
+     .login-footer{display:none;}
+    }
+   `}</style>
    <div className="login-glow login-glow-one"></div>
    <div className="login-glow login-glow-two"></div>
 
@@ -337,6 +746,43 @@ const startTest=(item)=>{
  }
 
  return <div className="app">
+ <style>{`
+  .agent-title{display:flex;align-items:center;justify-content:center;gap:12px;}
+  .profile-data{display:flex;flex-direction:column;min-width:0;}
+  .profile-data strong,.profile-data span{display:block;}
+  .logout-button{border:1px solid rgba(255,255,255,.65);background:rgba(255,255,255,.18);color:#fff;border-radius:12px;padding:10px 15px;font-weight:700;cursor:pointer;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.10);}
+  .logout-button:hover{background:rgba(255,255,255,.30);}
+  .logo-wrap,.sidebar-bottom{display:flex;align-items:center;}
+  .logo-wrap img,.sidebar-bottom img{background:rgba(255,255,255,.88);border-radius:14px;padding:5px 9px;box-sizing:border-box;box-shadow:0 4px 14px rgba(0,0,0,.16);}
+  .user-list-data{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .user-list-data strong,.user-list-data span{display:block;}
+  .user-list-data span{font-size:.9em;opacity:.72;}
+  .user-row-main{gap:14px;}
+  .user-list-data{gap:5px;}
+  .user-full-name{line-height:1.2;}
+  .user-login{line-height:1.2;padding:3px 8px;border:1px solid rgba(0,120,140,.16);border-radius:7px;background:rgba(0,170,180,.06);width:max-content;max-width:100%;}
+  .user-login b{font-weight:700;opacity:1;}
+  @media (max-width:700px){
+   .layout{display:block;}
+   .sidebar{width:100%;height:auto;min-height:0;position:relative;padding:10px 10px 8px;box-sizing:border-box;}
+   .sidebar h2{margin:4px 8px 8px;}
+   .sidebar nav{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+   .menu-item{min-height:52px;padding:10px 12px;}
+   .sidebar-bottom{display:none;}
+   .workspace{width:100%;min-width:0;box-sizing:border-box;overflow:visible;}
+   .question-page{min-height:320px;padding:20px 14px 30px;box-sizing:border-box;overflow:visible;}
+   .question-hero{position:relative;z-index:1;min-height:250px;}
+   .question-robot{max-width:190px;height:auto;}
+   .composer-area{position:relative;z-index:5;padding:0 12px 12px;}
+   .topbar{flex-wrap:wrap;height:auto;min-height:90px;padding:10px 12px;gap:8px;}
+   .brand-placeholder{display:none;}
+   .agent-title{order:1;flex:1;justify-content:flex-start;}
+   .topbar-right{order:2;display:flex;gap:6px;align-items:center;}
+   .profile{padding:5px 7px;}
+   .profile-data strong{max-width:145px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+   .logout-button{padding:8px 10px;font-size:13px;}
+  }
+ `}</style>
 
   <header className="topbar">
    <div className="brand-placeholder">
@@ -350,23 +796,28 @@ const startTest=(item)=>{
    </div>
 
    <div className="topbar-right">
-    <button className="icon-button">
-     <Bell size={21}/>
-     <span className="notification-dot"/>
-    </button>
 
     <div className="profile">
-     <div className="avatar">А</div>
-     <div>
-      <strong>Алексей</strong>
-      <span>Системный администратор</span>
-     </div>
-     <ChevronDown size={17}/>
+    <div className="avatar">
+     {(currentUser?.username||"П").charAt(0).toUpperCase()}
     </div>
+    <div className="profile-data">
+     <strong>{currentUser?.full_name||currentUser?.username||"Пользователь"}</strong>
+     <span>
+      {currentUser?.role==="manager"
+       ?"Руководитель"
+       :currentUser?.role==="specialist"
+        ?"Специалист"
+        :"Стажер"}
+     </span>
+    </div>
+    <ChevronDown size={17}/>
+   </div>
 
-    <div className="logo-wrap">
-     <img src="./ortho-n-logo.png" alt="ORTO-N"/>
-    </div>
+   <button className="logout-button" onClick={handleLogout} title="Выйти из приложения">
+    Выйти
+   </button>
+
    </div>
   </header>
 
@@ -376,7 +827,7 @@ const startTest=(item)=>{
     <h2>МЕНЮ</h2>
 
     <nav>
-     {menu.map(({key,label,icon:Icon})=>
+     {menu.filter(item=>item.roles.includes(currentUser?.role)).map(({key,label,icon:Icon})=>
       <button
        key={key}
        className={`menu-item ${active===key?"active":""}`}
@@ -424,6 +875,14 @@ const startTest=(item)=>{
         <strong>Инструкции</strong>
         <span>Создание и управление инструкциями, привязанными к должностям.</span>
        </button>
+
+       <button className="manager-card" onClick={openUsers}>
+        <div className="card-icon">
+         <Users size={25}/>
+        </div>
+        <strong>Пользователи</strong>
+        <span>Создание сотрудников и назначение им роли и пароля.</span>
+       </button>
       </div>
      </section>
     }
@@ -461,7 +920,7 @@ const startTest=(item)=>{
        }
 
        {positions.map((position,index)=>
-        <div className="position-row" key={`${position}-${index}`}>
+        <div className="position-row" key={position.id}>
          {editingPosition===index?
           <>
            <input autoFocus value={positionDraft}
@@ -474,7 +933,7 @@ const startTest=(item)=>{
           <>
            <div className="position-name">
             <BriefcaseBusiness size={19}/>
-            <span>{position}</span>
+            <span>{position.name}</span>
            </div>
            <div className="position-actions">
             <button onClick={()=>startEditPosition(index)}><Pencil size={18}/></button>
@@ -522,7 +981,7 @@ const startTest=(item)=>{
          <select value={instructionDraft.position}
           onChange={e=>setInstructionDraft({...instructionDraft,position:e.target.value})}>
           <option value="">Выберите должность</option>
-          {positions.map(p=><option key={p} value={p}>{p}</option>)}
+          {positions.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
          </select>
 
          <textarea value={instructionDraft.text}
@@ -573,6 +1032,141 @@ const startTest=(item)=>{
      </section>
     }
 
+    {active==="manager"&&section==="users"&&currentUser?.role==="manager"&&
+     <section className="manager-subpage">
+      <button className="back-link" onClick={()=>setSection("home")}>
+       <ArrowLeft size={17}/>
+       Назад к разделу «Руководитель»
+      </button>
+
+      <div className="section-heading">
+       <h2>Пользователи</h2>
+       <p>Управление учётными записями сотрудников</p>
+      </div>
+
+      <div className="positions-panel">
+       <div className="positions-header">
+        <h3>Список пользователей</h3>
+        <button className="add-position" onClick={()=>{setAddingUser(true);setEditingUser(null);setUserError("");}}>
+         <Plus size={18}/>
+         Добавить пользователя
+        </button>
+       </div>
+
+       {addingUser&&
+        <div className="instruction-editor">
+         <input
+          autoFocus
+          value={userDraft.full_name}
+          onChange={e=>setUserDraft({...userDraft,full_name:e.target.value})}
+          placeholder="ФИО сотрудника"
+          autoComplete="name"
+         />
+
+         <input
+          value={userDraft.username}
+          onChange={e=>setUserDraft({...userDraft,username:e.target.value})}
+          placeholder="Логин"
+          autoComplete="off"
+         />
+
+         <input
+          type="password"
+          value={userDraft.password}
+          onChange={e=>setUserDraft({...userDraft,password:e.target.value})}
+          placeholder="Пароль (минимум 6 символов)"
+          autoComplete="new-password"
+         />
+
+         <select
+          value={userDraft.role}
+          onChange={e=>setUserDraft({...userDraft,role:e.target.value})}
+         >
+          <option value="specialist">Специалист</option>
+          <option value="trainee">Стажер</option>
+         </select>
+
+         <div className="instruction-editor-actions">
+          <button className="add-position" onClick={saveNewUser}>
+           <Check size={18}/>
+           Создать
+          </button>
+          <button className="cancel-btn" onClick={()=>setAddingUser(false)}>
+           <X size={18}/>
+           Отмена
+          </button>
+         </div>
+       </div>
+       }
+
+       {editingUser!==null&&
+        <div className="instruction-editor">
+         <input
+          autoFocus
+          value={userEditDraft.full_name}
+          onChange={e=>setUserEditDraft({...userEditDraft,full_name:e.target.value})}
+          placeholder="ФИО сотрудника"
+          autoComplete="name"
+         />
+
+         <select
+          value={userEditDraft.role}
+          onChange={e=>setUserEditDraft({...userEditDraft,role:e.target.value})}
+         >
+          <option value="manager">Руководитель</option>
+          <option value="specialist">Специалист</option>
+          <option value="trainee">Стажер</option>
+         </select>
+
+         <div className="instruction-editor-actions">
+          <button className="add-position" onClick={saveEditedUser}>
+           <Check size={18}/>
+           Сохранить изменения
+          </button>
+          <button className="cancel-btn" onClick={()=>setEditingUser(null)}>
+           <X size={18}/>
+           Отмена
+          </button>
+         </div>
+        </div>
+       }
+
+       {userError&&<div className="login-error">{userError}</div>}
+
+       {usersLoading&&
+        <div className="empty-positions">Загрузка пользователей...</div>
+       }
+
+       {!usersLoading&&users.map(user=>
+        <div className="position-row" key={user.id}>
+         <div className="position-name user-row-main">
+          <Users size={19}/>
+          <div className="user-list-data">
+           <strong className="user-full-name">{user.full_name||user.username}</strong>
+           <span className="user-login">Логин: <b>{user.username}</b></span>
+          </div>
+         </div>
+         <div className="position-actions" style={{gap:16}}>
+          <span>{user.role==="manager"?"Руководитель":user.role==="specialist"?"Специалист":"Стажер"}</span>
+          <span>{user.is_active?"Активен":"Отключён"}</span>
+          <button title="Редактировать пользователя" onClick={()=>startEditUser(user)}><Pencil size={18}/></button>
+          <button
+           className="delete-btn"
+           title={user.id===currentUser?.id?"Нельзя удалить собственную учётную запись":"Удалить пользователя"}
+           disabled={user.id===currentUser?.id}
+           onClick={()=>removeUser(user)}
+          ><Trash2 size={18}/></button>
+         </div>
+        </div>
+       )}
+
+       {!usersLoading&&!users.length&&
+        <div className="empty-positions">Пользователей пока нет.</div>
+       }
+      </div>
+     </section>
+    }
+
     {active==="specialist"&&
      <section className="specialist-page">
 
@@ -591,7 +1185,7 @@ const startTest=(item)=>{
            onChange={e=>setSpecialistPosition(e.target.value)}
           >
            <option value="">Все должности</option>
-           {positions.map(p=><option key={p} value={p}>{p}</option>)}
+           {positions.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
           </select>
          </div>
 
@@ -664,10 +1258,17 @@ const startTest=(item)=>{
           <h2>{selectedInstruction.title}</h2>
          </div>
 
-         <div className="specialist-document-text">
-          {selectedInstruction.text}
-         </div>
+        <div className="specialist-document-text">
+         {selectedInstruction.text}
         </div>
+
+        {currentUser?.role==="specialist"&&selectedInstruction.created_by_user_id===currentUser.id&&
+         <button className="delete-btn" onClick={()=>removeInstruction(selectedInstruction.id)}>
+          <Trash2 size={18}/>
+          Удалить свою инструкцию
+         </button>
+        }
+       </div>
        </div>
       }
      </section>
@@ -685,7 +1286,7 @@ const startTest=(item)=>{
         <label>Ваша должность</label>
         <select value={traineePosition} onChange={e=>setTraineePosition(e.target.value)}>
          <option value="">Выберите должность</option>
-         {positions.map(p=><option key={p} value={p}>{p}</option>)}
+         {positions.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
         </select>
        </div>
 
@@ -1026,31 +1627,33 @@ const startTest=(item)=>{
      </div>
     }
 
-    <div className="composer-area">
-     <div className="composer">
-      <button className="attach"><Paperclip size={22}/></button>
+    {active==="question"&&
+     <div className="composer-area">
+      <div className="composer">
+       <button className="attach"><Paperclip size={22}/></button>
 
-      <input
-       value={message}
-       onChange={e=>setMessage(e.target.value)}
-       onKeyDown={e=>{
-        if(e.key==="Enter"&&!e.shiftKey){
-         e.preventDefault();
-         sendMessage();
-        }
-       }}
-       placeholder="Напишите сообщение..."
-      />
+       <input
+        value={message}
+        onChange={e=>setMessage(e.target.value)}
+        onKeyDown={e=>{
+         if(e.key==="Enter"&&!e.shiftKey){
+          e.preventDefault();
+          sendMessage();
+         }
+        }}
+        placeholder="Напишите сообщение..."
+       />
 
-      <button className="send" onClick={sendMessage}>
-       <Send size={21}/>
-      </button>
+       <button className="send" onClick={sendMessage}>
+        <Send size={21}/>
+       </button>
+      </div>
+
+      <div className="composer-hint">
+       Нажмите Enter для отправки&nbsp;&nbsp;•&nbsp;&nbsp;Shift + Enter для новой строки
+      </div>
      </div>
-
-     <div className="composer-hint">
-      Нажмите Enter для отправки&nbsp;&nbsp;•&nbsp;&nbsp;Shift + Enter для новой строки
-     </div>
-    </div>
+    }
 
    </main>
   </div>
@@ -1058,3 +1661,25 @@ const startTest=(item)=>{
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
