@@ -30,3 +30,14 @@ workflows/*.backup.json
 # Internal AI Documentation
 # =========================
 AI-CONTEXT.md
+
+# =========================
+# Frontend build / dependencies / local backups
+# =========================
+frontend/ortona-ai/node_modules/
+frontend/ortona-ai/dist/
+frontend/ortona-ai/src/*.backup-*.jsx
+
+backend/.env
+backend/__pycache__/
+backend/*.backup-*.py

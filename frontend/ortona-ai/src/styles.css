@@ -18,8 +18,8 @@ button{cursor:pointer}
 
 .layout{display:flex;flex:1;min-height:0;overflow:hidden}
 .sidebar{width:360px;min-width:360px;height:100%;padding:20px 18px 22px;display:flex;flex-direction:column;color:#073b70;overflow:hidden}
-.sidebar h2{font-size:20px;font-weight:500;margin:0 18px 22px}.sidebar nav{display:flex;flex-direction:column}
-.menu-item{height:88px;border:0;border-bottom:1px solid rgba(255,255,255,.65);background:transparent;display:flex;align-items:center;gap:22px;padding:0 20px;color:#073b70;font-size:20px;text-align:left}.menu-item.active{background:#f0fafb;border-radius:18px}.menu-arrow{margin-left:auto}
+.sidebar h2{font-size:20px;font-weight:700;margin:0 18px 22px}.sidebar nav{display:flex;flex-direction:column}
+.menu-item{height:88px;border:0;border-bottom:1px solid rgba(255,255,255,.65);background:transparent;display:flex;align-items:center;gap:22px;padding:0 20px;color:#fff;font-size:20px;font-weight:600;text-align:left}.menu-item svg{color:#fff}.menu-item.active{background:#fff;border-radius:18px;color:#008f95}.menu-item.active svg{color:#008f95}.menu-arrow{margin-left:auto;color:#fff}.menu-item.active .menu-arrow{color:#008f95}
 .sidebar-bottom{margin-top:auto;padding:20px 20px 0;border-top:1px solid rgba(255,255,255,.65);display:flex;align-items:center;gap:30px}.sidebar-bottom img{width:66px;height:66px;object-fit:contain}.sidebar-slogan{font-size:12px;line-height:1.3}
 
 .workspace{position:relative;flex:1;min-width:0;min-height:0;margin:16px 18px 18px 0;background:#f4fbfc;border-radius:24px;overflow:hidden;padding:0}
@@ -1691,3 +1691,8 @@ button{cursor:pointer}
 @media(max-width:850px){.login-page{padding:24px}.login-brand{top:20px;left:24px}.login-content{grid-template-columns:1fr;gap:10px;margin-top:45px}.login-card{max-width:430px;margin:auto;order:1}.login-robot-wrap{height:280px;order:2}.login-robot{width:280px;max-height:280px}.login-footer{display:none}}
 @media(max-width:480px){.login-page{padding:14px}.login-brand{left:18px;top:15px}.login-brand img{width:45px;height:45px}.login-brand strong{font-size:16px}.login-brand span{font-size:9px}.login-content{margin-top:35px}.login-card{padding:28px 20px;border-radius:22px}.login-card-heading h1{font-size:26px}.login-robot-wrap{height:220px}.login-robot{width:220px;max-height:220px}}
 /* ===== END REAL LOGIN ===== */
+
+@media (max-width: 768px) { .login-robot-wrap { display: none !important; } }
+
+@media (max-width: 1024px) { .login-robot-wrap { display: none !important; } }
+
