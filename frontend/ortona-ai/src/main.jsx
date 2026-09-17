@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { ChevronDown, ChevronRight, Users, UserRound, GraduationCap, MessageCircle, BriefcaseBusiness, FileText, Send, Paperclip, Plus, Pencil, Trash2, X, Check, ArrowLeft, Search } from "lucide-react";
 import "./styles.css";
@@ -72,14 +72,21 @@ function App(){
  const [interviewOpen,setInterviewOpen]=useState(false);
  const [interviewStep,setInterviewStep]=useState(1);
  const [interviewAnswer,setInterviewAnswer]=useState("");
+ const [interviewHistory,setInterviewHistory]=useState([]);
+ const [interviewLoading,setInterviewLoading]=useState(false);
+ const [interviewError,setInterviewError]=useState("");
+ const [interviewProcess,setInterviewProcess]=useState(null);
+ const [interviewScreenshot,setInterviewScreenshot]=useState(null);
+ const [interviewScreenshotRequest,setInterviewScreenshotRequest]=useState(false);
+ const interviewFileRef=useRef(null);
 
  const [users,setUsers]=useState([]);
  const [usersLoading,setUsersLoading]=useState(false);
  const [userError,setUserError]=useState("");
  const [addingUser,setAddingUser]=useState(false);
- const [userDraft,setUserDraft]=useState({full_name:"",username:"",password:"",role:"specialist"});
+ const [userDraft,setUserDraft]=useState({full_name:"",username:"",password:"",role:"specialist",position_id:null});
  const [editingUser,setEditingUser]=useState(null);
- const [userEditDraft,setUserEditDraft]=useState({full_name:"",role:"specialist"});
+ const [userEditDraft,setUserEditDraft]=useState({full_name:"",role:"specialist",position_id:null});
 
  useEffect(()=>{
   const token=localStorage.getItem("ortona_access_token");
@@ -149,6 +156,15 @@ function App(){
    });
  },[authenticated]);
 
+ useEffect(()=>{
+  if(!currentUser||!positions.length)return;
+  const assignedPosition=positions.find(
+   position=>Number(position.id)===Number(currentUser.position_id)
+  )?.name||"";
+  if(currentUser.role==="specialist")setSpecialistPosition(assignedPosition);
+  if(currentUser.role==="trainee")setTraineePosition(assignedPosition);
+ },[currentUser,positions]);
+
  const selectMenu=key=>{
   setActive(key);
   setSection(key==="manager"?"home":key==="users"?"users":"chat");
@@ -187,7 +203,7 @@ function App(){
   setSection("users");
   setAddingUser(false);
   setEditingUser(null);
-  setUserDraft({full_name:"",username:"",password:"",role:"specialist"});
+  setUserDraft({full_name:"",username:"",password:"",role:"specialist",position_id:null});
   loadUsers();
  };
 
@@ -198,6 +214,11 @@ function App(){
 
   if(!full_name||!username||!password){
    setUserError("Заполните ФИО, логин и пароль");
+   return;
+  }
+
+  if(userDraft.role!=="manager"&&!userDraft.position_id){
+   setUserError("Выберите должность сотрудника");
    return;
   }
 
@@ -214,7 +235,8 @@ function App(){
      username,
      full_name,
      password,
-     role:userDraft.role
+     role:userDraft.role,
+     position_id:userDraft.position_id||null
     })
    });
 
@@ -224,7 +246,7 @@ function App(){
     throw new Error(data?.detail||"Не удалось создать пользователя");
    }
 
-   setUserDraft({full_name:"",username:"",password:"",role:"specialist"});
+   setUserDraft({full_name:"",username:"",password:"",role:"specialist",position_id:null});
    setAddingUser(false);
    await loadUsers();
   }catch(error){
@@ -431,7 +453,11 @@ const savePosition=async()=>{
   setAddingUser(false);
   setUserError("");
   setEditingUser(user.id);
-  setUserEditDraft({full_name:user.full_name||"",role:user.role});
+  setUserEditDraft({
+    full_name:user.full_name||"",
+    role:user.role,
+    position_id:user.position_id||null
+   });
  };
 
  const saveEditedUser=async()=>{
@@ -442,11 +468,16 @@ const savePosition=async()=>{
    return;
   }
 
+  if(userEditDraft.role!=="manager"&&!userEditDraft.position_id){
+   setUserError("Выберите должность сотрудника");
+   return;
+  }
+
   try{
    const response=await fetch(`${API_URL}/users/${editingUser}`,{
     method:"PUT",
     headers:{...getAuthHeaders(),"Content-Type":"application/json"},
-    body:JSON.stringify({full_name,role:userEditDraft.role})
+    body:JSON.stringify({full_name,role:userEditDraft.role,position_id:userEditDraft.position_id||null})
    });
    const data=await response.json().catch(()=>null);
 
@@ -599,6 +630,145 @@ const savePosition=async()=>{
   }
 
   setMessage("");
+ };
+
+ const startInterview=async()=>{
+  setInterviewOpen(true);
+  setInterviewStep(1);
+  setInterviewAnswer("");
+  setInterviewHistory([]);
+  setInterviewError("");
+  setInterviewProcess(null);
+  setInterviewScreenshot(null);
+  setInterviewScreenshotRequest(false);
+  setInterviewLoading(true);
+
+  try{
+   const response=await fetch(`${API_URL}/ai/interview`,{
+    method:"POST",
+    headers:{
+     "Content-Type":"application/json",
+     ...getAuthHeaders()
+    },
+    body:JSON.stringify({
+     message:"",
+     history:[],
+     role:currentUser?.role||null,
+     position:(positions.find(position=>Number(position.id)===Number(currentUser?.position_id))?.name||specialistPosition||null),
+     process:null
+    })
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось запустить интервью");
+   }
+
+   setInterviewHistory([{role:"assistant",content:data.message||""}]);
+
+   if(data.status==="completed"){
+    setInterviewProcess(data.process_json||null);
+   }
+  }catch(error){
+   setInterviewError(error.message||"Не удалось запустить интервью");
+  }finally{
+   setInterviewLoading(false);
+  }
+ };
+
+ const sendInterviewAnswer=async()=>{
+  const answer=interviewAnswer.trim();
+  if((!answer&&!interviewScreenshot)||interviewLoading)return;
+
+  const nextHistory=[
+   ...interviewHistory,
+   ...(answer?[{role:"user",content:answer}]:[])
+  ];
+
+  setInterviewHistory(nextHistory);
+  setInterviewAnswer("");
+  setInterviewError("");
+  setInterviewLoading(true);
+
+  try{
+   const response=await fetch(`${API_URL}/ai/interview`,{
+    method:"POST",
+    headers:{
+     "Content-Type":"application/json",
+     ...getAuthHeaders()
+    },
+    body:JSON.stringify({
+     message:answer,
+     history:nextHistory,
+     role:currentUser?.role||null,
+     position:specialistPosition||null,
+     process:null,
+     screenshot:interviewScreenshot?.data||null,
+     screenshot_type:interviewScreenshot?.type||null
+    })
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось получить ответ ИИ");
+   }
+
+   if(data.message){
+    setInterviewHistory(prev=>[
+     ...prev,
+     {role:"assistant",content:data.message}
+    ]);
+   }
+
+   setInterviewScreenshot(null);
+   setInterviewScreenshotRequest(data.screenshot_request===true);
+
+   if(data.status==="completed"){
+    setInterviewProcess(data.process_json||null);
+   }
+
+   setInterviewStep(prev=>prev+1);
+  }catch(error){
+   setInterviewError(error.message||"Не удалось получить ответ ИИ");
+  }finally{
+   setInterviewLoading(false);
+  }
+ };
+
+ const handleInterviewScreenshot=event=>{
+  const file=event.target.files?.[0];
+  if(!file)return;
+
+  if(!["image/png","image/jpeg","image/webp"].includes(file.type)){
+   setInterviewError("Можно прикрепить PNG, JPG или WebP");
+   event.target.value="";
+   return;
+  }
+
+  if(file.size>8*1024*1024){
+   setInterviewError("Размер скриншота не должен превышать 8 МБ");
+   event.target.value="";
+   return;
+  }
+
+  const reader=new FileReader();
+
+  reader.onload=()=>{
+   setInterviewScreenshot({
+    name:file.name,
+    type:file.type,
+    data:String(reader.result).replace(/^data:image\/[^;]+;base64,/,"")
+   });
+   setInterviewError("");
+  };
+
+  reader.onerror=()=>{
+   setInterviewError("Не удалось прочитать скриншот");
+  };
+
+  reader.readAsDataURL(file);
  };
 
  const handleLogin=async()=>{
@@ -1086,6 +1256,21 @@ const savePosition=async()=>{
           <option value="trainee">Стажер</option>
          </select>
 
+         {userDraft.role!=="manager"&&
+          <select
+           value={userDraft.position_id||""}
+           onChange={e=>setUserDraft({
+            ...userDraft,
+            position_id:e.target.value?Number(e.target.value):null
+           })}
+          >
+           <option value="">Выберите должность</option>
+           {positions.map(position=>(
+            <option key={position.id} value={position.id}>{position.name}</option>
+           ))}
+          </select>
+         }
+
          <div className="instruction-editor-actions">
           <button className="add-position" onClick={saveNewUser}>
            <Check size={18}/>
@@ -1117,6 +1302,21 @@ const savePosition=async()=>{
           <option value="specialist">Специалист</option>
           <option value="trainee">Стажер</option>
          </select>
+
+         {userEditDraft.role!=="manager"&&
+          <select
+           value={userEditDraft.position_id||""}
+           onChange={e=>setUserEditDraft({
+            ...userEditDraft,
+            position_id:e.target.value?Number(e.target.value):null
+           })}
+          >
+           <option value="">Выберите должность</option>
+           {positions.map(position=>(
+            <option key={position.id} value={position.id}>{position.name}</option>
+           ))}
+          </select>
+         }
 
          <div className="instruction-editor-actions">
           <button className="add-position" onClick={saveEditedUser}>
@@ -1206,7 +1406,7 @@ const savePosition=async()=>{
           <h3>Интервью</h3>
           <p>Проверьте знания и готовность к работе по вашей должности.</p>
          </div>
-         <button className="interview-launch-button" onClick={()=>setInterviewOpen(true)}>
+         <button className="interview-launch-button" onClick={startInterview}>
           Начать интервью
           <ChevronRight size={19}/>
          </button>
@@ -1573,55 +1773,83 @@ const savePosition=async()=>{
 
        <div className="interview-progress">
         <div className="interview-progress-top">
-         <span>Вопрос {interviewStep} из 5</span>
-         <strong>{interviewStep*20}%</strong>
+         <span>Вопрос {interviewStep}</span>
+         <strong>{Math.min(Math.round((interviewStep/15)*100),100)}%</strong>
         </div>
         <div className="interview-progress-bar">
-         <div style={{width:(interviewStep*20)+"%"}}></div>
+         <div style={{width:Math.min((interviewStep/15)*100,100)+"%"}}></div>
         </div>
        </div>
 
        <div className="interview-question">
         <span>Вопрос {interviewStep}</span>
         <h3>
-         {interviewStep===1
-          ?"Как вы будете действовать при первичном обращении нового пациента?"
-          :interviewStep===2
-          ?"Какие данные необходимо уточнить у пациента перед началом работы?"
-          :interviewStep===3
-          ?"Как вы проверяете правильность оформления информации?"
-          :interviewStep===4
-          ?"Что вы будете делать, если не знаете правильного порядка действий?"
-          :"Расскажите о ключевых правилах вашей должности."
-         }
+         {interviewLoading&&interviewHistory.length===0
+          ?"Ортона-AI готовит первый вопрос..."
+          :(interviewHistory.filter(item=>item.role==="assistant").slice(-1)[0]?.content||"Ожидание вопроса...")}
         </h3>
+        {interviewError&&<div className="login-error">{interviewError}</div>}
        </div>
+
+       {interviewScreenshotRequest&&
+        <div className="interview-screenshot-box">
+         <input
+          ref={interviewFileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleInterviewScreenshot}
+          style={{display:"none"}}
+         />
+         <button
+          type="button"
+          className="interview-attach-button"
+          onClick={()=>interviewFileRef.current?.click()}
+          disabled={interviewLoading}
+         >
+          <Paperclip size={19}/>
+          Прикрепить скриншот
+         </button>
+
+         {interviewScreenshot&&
+          <div className="interview-screenshot-preview">
+           <span>{interviewScreenshot.name}</span>
+           <button
+            type="button"
+            onClick={()=>{
+             setInterviewScreenshot(null);
+             if(interviewFileRef.current)interviewFileRef.current.value="";
+            }}
+            disabled={interviewLoading}
+            aria-label="Удалить скриншот"
+           >
+            <X size={17}/>
+           </button>
+          </div>
+         }
+        </div>
+       }
 
        <textarea
         className="interview-answer"
         value={interviewAnswer}
         onChange={e=>setInterviewAnswer(e.target.value)}
-        placeholder="Введите ваш ответ..."
+        placeholder={interviewScreenshotRequest?"Добавьте комментарий к скриншоту (необязательно)...":"Введите ваш ответ..."}
        />
 
        <div className="interview-modal-footer">
-        <span>Ответ можно изменить до перехода к следующему вопросу</span>
+        <span>
+         {interviewScreenshotRequest
+          ?"Прикрепите скриншот и нажмите «Отправить»"
+          :"Ответ можно изменить до перехода к следующему вопросу"}
+        </span>
         <button
-         className="interview-next"
-         onClick={()=>{
-          if(interviewStep<5){
-           setInterviewStep(interviewStep+1);
-           setInterviewAnswer("");
-          }else{
-           setInterviewOpen(false);
-           setInterviewStep(1);
-           setInterviewAnswer("");
-          }
-         }}
-        >
-         {interviewStep<5?"Следующий вопрос":"Завершить интервью"}
-         <ChevronRight size={19}/>
-        </button>
+          className="interview-next"
+          disabled={interviewLoading||(!interviewAnswer.trim()&&!interviewScreenshot)}
+          onClick={sendInterviewAnswer}
+         >
+          {interviewLoading?"Ортона-AI думает...":interviewScreenshot?"Отправить":"Ответить"}
+          <ChevronRight size={19}/>
+         </button>
        </div>
       </div>
      </div>
@@ -1661,25 +1889,3 @@ const savePosition=async()=>{
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

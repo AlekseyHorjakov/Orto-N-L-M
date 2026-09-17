@@ -1,4 +1,7 @@
 import bcrypt
+import json
+import urllib.request
+import urllib.error
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Depends, FastAPI, HTTPException
@@ -18,6 +21,7 @@ from auth import (
 app = FastAPI(
     title="Orto-N-L-M API",
     version="1.0.0",
+    root_path="/api",
 )
 
 
@@ -48,6 +52,65 @@ class UserUpdate(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=6, max_length=128)
+
+
+class InterviewRequest(BaseModel):
+    message: str = ""
+    history: list = []
+    role: str | None = None
+    position: str | None = None
+    process: str | None = None
+    screenshot: str | None = None
+    screenshot_type: str | None = None
+
+
+@app.post("/ai/interview")
+def ai_interview(
+    data: InterviewRequest,
+    current_user: dict = Depends(
+        require_role("manager", "specialist")
+    ),
+):
+    payload = {
+        "action": "interview",
+        "message": data.message,
+        "history": data.history,
+        "role": data.role,
+        "position": data.position,
+        "process": data.process,
+        "screenshot": data.screenshot,
+        "screenshot_type": data.screenshot_type,
+        "user": {
+            "id": current_user["sub"],
+            "username": current_user["username"],
+            "role": current_user["role"],
+        },
+    }
+
+    request = urllib.request.Request(
+        "https://behololakug.beget.app/webhook/orto-ai",
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            return result
+
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", errors="replace")
+        raise HTTPException(
+            status_code=502,
+            detail=f"n8n HTTP {e.code}: {detail}",
+        )
+
+    except urllib.error.URLError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"n8n connection error: {e.reason}",
+        )
 
 
 @app.get("/health")
@@ -137,6 +200,7 @@ def get_users(
                     username,
                     full_name,
                     role,
+                    position_id,
                     is_active,
                     created_at
                 FROM users
@@ -151,6 +215,7 @@ def get_users(
             "username": user["username"],
             "full_name": user["full_name"],
             "role": user["role"],
+            "position_id": user["position_id"],
             "is_active": user["is_active"],
             "created_at": user["created_at"],
         }
@@ -232,13 +297,15 @@ def create_user(
                     username,
                     full_name,
                     password_hash,
-                    role
+                    role,
+                    position_id
                 )
                 VALUES (
                     :username,
                     :full_name,
                     :password_hash,
-                    :role
+                    :role,
+                    :position_id
                 )
                 """
             ),
@@ -247,6 +314,7 @@ def create_user(
                 "full_name": full_name,
                 "password_hash": password_hash,
                 "role": user_data.role,
+                "position_id": user_data.position_id,
             },
         )
 
@@ -274,6 +342,7 @@ def create_user(
         "username": created_user["username"],
         "full_name": created_user["full_name"],
         "role": created_user["role"],
+        "position_id": created_user["position_id"],
         "is_active": created_user["is_active"],
         "created_at": created_user["created_at"],
     }
@@ -352,15 +421,18 @@ def update_user(
             text(
                 """
                 UPDATE users
-                SET full_name = :full_name, role = :role
+                SET full_name = :full_name,
+                    role = :role,
+                    position_id = :position_id
                 WHERE id = :user_id
-                RETURNING id, username, full_name, role, is_active, created_at
+                RETURNING id, username, full_name, role, position_id, is_active, created_at
                 """
             ),
             {
                 "user_id": user_id,
                 "full_name": full_name,
                 "role": user_data.role,
+                "position_id": user_data.position_id,
             },
         ).mappings().one()
 
@@ -382,7 +454,7 @@ def delete_user(
         user = connection.execute(
             text(
                 """
-                SELECT id, username, full_name, role, is_active
+                SELECT id, username, full_name, role, position_id, is_active
                 FROM users
                 WHERE id = :user_id
                 """
@@ -453,6 +525,7 @@ def get_me(
         "username": user["username"],
         "full_name": user["full_name"],
         "role": user["role"],
+        "position_id": user["position_id"],
     }
 
 
@@ -580,13 +653,13 @@ def create_process(
                     position_id,
                     name,
                     goal,
-                    process_json,
+                    process_json
                 )
                 VALUES (
                     :position_id,
                     :name,
                     :goal,
-                    jsonb_build_object('text', CAST(:goal AS TEXT)),
+                    jsonb_build_object('text', CAST(:goal AS TEXT))
                 )
                 RETURNING id, position_id, name, goal, process_json
             """),
