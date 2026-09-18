@@ -554,6 +554,7 @@ class ProcessCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     position_id: int
     goal: str = Field(min_length=1)
+    process_json: dict | None = None
 
 
 class ProcessUpdate(BaseModel):
@@ -664,6 +665,12 @@ def create_process(
                 detail="Инструкция с таким названием для этой должности уже существует",
             )
 
+        process_json_value = (
+            json.dumps(process_data.process_json, ensure_ascii=False)
+            if process_data.process_json is not None
+            else None
+        )
+
         row = connection.execute(
             text("""
                 INSERT INTO processes (
@@ -676,7 +683,10 @@ def create_process(
                     :position_id,
                     :name,
                     :goal,
-                    jsonb_build_object('text', CAST(:goal AS TEXT))
+                    COALESCE(
+                        CAST(:process_json AS jsonb),
+                        jsonb_build_object('text', CAST(:goal AS TEXT))
+                    )
                 )
                 RETURNING id, position_id, name, goal, process_json
             """),
@@ -684,6 +694,7 @@ def create_process(
                 "position_id": process_data.position_id,
                 "name": name,
                 "goal": goal,
+                "process_json": process_json_value,
             },
         ).mappings().one()
     return {
