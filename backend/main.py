@@ -328,6 +328,7 @@ def create_user(
                     username,
                     full_name,
                     role,
+                    position_id,
                     is_active,
                     created_at
                 FROM users
@@ -500,7 +501,7 @@ def get_me(
         user = connection.execute(
             text(
                 """
-                SELECT id, username, full_name, role, is_active
+                SELECT id, username, full_name, role, position_id, is_active
                 FROM users
                 WHERE id = :user_id
                 """
