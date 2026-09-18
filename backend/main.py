@@ -813,7 +813,7 @@ def update_process(
 @app.delete("/processes/{process_id}")
 def delete_process(
     process_id: int,
-    current_user: dict = Depends(require_role("manager", "specialist")),
+    current_user: dict = Depends(require_role("manager")),
 ):
     with engine.begin() as connection:
         process = connection.execute(
