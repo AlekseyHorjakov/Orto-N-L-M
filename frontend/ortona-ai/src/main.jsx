@@ -76,6 +76,7 @@ function App(){
  const [interviewLoading,setInterviewLoading]=useState(false);
  const [interviewError,setInterviewError]=useState("");
  const [interviewProcess,setInterviewProcess]=useState(null);
+ const [interviewSavedNote,setInterviewSavedNote]=useState("");
  const [interviewScreenshot,setInterviewScreenshot]=useState(null);
  const [interviewScreenshotRequest,setInterviewScreenshotRequest]=useState(false);
  const interviewFileRef=useRef(null);
@@ -641,6 +642,7 @@ const savePosition=async()=>{
   setInterviewProcess(null);
   setInterviewScreenshot(null);
   setInterviewScreenshotRequest(false);
+ setInterviewSavedNote("");
   setInterviewLoading(true);
 
   try{
@@ -669,6 +671,7 @@ const savePosition=async()=>{
 
    if(data.status==="completed"){
     setInterviewProcess(data.process_json||null);
+    saveInterviewProcess(data.process_json);
    }
   }catch(error){
    setInterviewError(error.message||"Не удалось запустить интервью");
@@ -727,6 +730,7 @@ const savePosition=async()=>{
 
    if(data.status==="completed"){
     setInterviewProcess(data.process_json||null);
+    saveInterviewProcess(data.process_json);
    }
 
    setInterviewStep(prev=>prev+1);
@@ -734,6 +738,53 @@ const savePosition=async()=>{
    setInterviewError(error.message||"Не удалось получить ответ ИИ");
   }finally{
    setInterviewLoading(false);
+  }
+ };
+
+ const saveInterviewProcess=async processJson=>{
+  if(!processJson)return;
+
+  setInterviewSavedNote("");
+
+  const position=positions.find(item=>item.name===specialistPosition);
+  const name=String(processJson?.metadata?.process||"").trim();
+  const goal=String(processJson?.goal||"").trim();
+
+  if(!position?.id){
+   setInterviewError("Не удалось определить должность интервью — результат не сохранён.");
+   return;
+  }
+
+  if(!name||!goal){
+   setInterviewError("Process JSON не содержит названия процесса или цели — результат не сохранён.");
+   return;
+  }
+
+  try{
+   const response=await fetch(`${API_URL}/processes`,{
+    method:"POST",
+    headers:{
+     "Content-Type":"application/json",
+     ...getAuthHeaders()
+    },
+    body:JSON.stringify({
+     name,
+     position_id:position.id,
+     goal,
+     process_json:processJson
+    })
+   });
+
+   const data=await response.json().catch(()=>null);
+
+   if(!response.ok){
+    throw new Error(data?.detail||"Не удалось сохранить результат интервью");
+   }
+
+   setInstructions(prev=>prev.some(item=>item.id===data.id)?prev:[...prev,data]);
+   setInterviewSavedNote(`Результат интервью сохранён как инструкция «${data.title}» (должность: ${data.position}).`);
+  }catch(error){
+   setInterviewError(error.message||"Не удалось сохранить результат интервью");
   }
  };
 
@@ -1789,6 +1840,7 @@ const savePosition=async()=>{
           :(interviewHistory.filter(item=>item.role==="assistant").slice(-1)[0]?.content||"Ожидание вопроса...")}
         </h3>
         {interviewError&&<div className="login-error">{interviewError}</div>}
+        {interviewSavedNote&&<div className="interview-saved-note">{interviewSavedNote}</div>}
        </div>
 
        {interviewScreenshotRequest&&

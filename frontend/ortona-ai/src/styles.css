@@ -419,6 +419,17 @@ button{cursor:pointer}
  transition:width .3s ease;
 }
 
+.interview-saved-note{
+ margin:-4px 0 14px;
+ padding:11px 14px;
+ border:1px solid #bfe6dd;
+ border-radius:12px;
+ background:#f0fbf9;
+ color:#1f8a80;
+ font-size:13px;
+ text-align:center;
+}
+
 .interview-question{
  padding:28px 4px 20px;
 }
