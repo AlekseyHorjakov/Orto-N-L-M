@@ -1,7 +1,10 @@
 import bcrypt
 import json
+import os
 import urllib.request
 import urllib.error
+
+from dotenv import load_dotenv
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Depends, FastAPI, HTTPException
@@ -16,6 +19,17 @@ from auth import (
     get_current_user,
     require_role,
 )
+
+
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+
+N8N_INTERVIEW_WEBHOOK_URL = os.environ.get("N8N_INTERVIEW_WEBHOOK_URL")
+if not N8N_INTERVIEW_WEBHOOK_URL:
+    raise RuntimeError(
+        "Ошибка конфигурации: переменная окружения "
+        "N8N_INTERVIEW_WEBHOOK_URL не задана. "
+        "Укажите её в backend/.env или в окружении контейнера."
+    )
 
 
 app = FastAPI(
@@ -88,7 +102,7 @@ def ai_interview(
     }
 
     request = urllib.request.Request(
-        "https://behololakug.beget.app/webhook/orto-ai",
+        N8N_INTERVIEW_WEBHOOK_URL,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={"Content-Type": "application/json"},
         method="POST",
