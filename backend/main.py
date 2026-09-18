@@ -56,11 +56,13 @@ class UserCreate(BaseModel):
     full_name: str = Field(min_length=2, max_length=255)
     password: str = Field(min_length=6, max_length=128)
     role: str
+    position_id: int | None = None
 
 
 class UserUpdate(BaseModel):
     full_name: str = Field(min_length=2, max_length=255)
     role: str
+    position_id: int | None = None
 
 
 class PasswordChange(BaseModel):
