@@ -54,7 +54,12 @@ def decode_access_token(token: str) -> dict:
     )
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+def authenticate_token(token: str) -> dict:
+    """Проверяет JWT и возвращает пользователя.
+
+    Используется и в обычных запросах (Bearer-заголовок), и в выдаче файлов,
+    где токен может приходить query-параметром (например, для <img>).
+    """
     try:
         payload = decode_access_token(token)
         user_id = int(payload["sub"])
@@ -95,6 +100,10 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
         "username": user["username"],
         "role": user["role"],
     }
+
+
+def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
+    return authenticate_token(token)
 
 
 def require_role(*allowed_roles: str):

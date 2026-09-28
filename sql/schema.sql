@@ -25,8 +25,12 @@ CREATE TABLE IF NOT EXISTS processes (
     position_id INTEGER NOT NULL REFERENCES positions(id),
     name TEXT NOT NULL,
     goal TEXT,
-    process_json JSONB NOT NULL
+    process_json JSONB NOT NULL,
+    instruction_text TEXT
 );
+
+-- Миграция для существующих баз: готовый текст инструкции (AI Instruction Generator).
+ALTER TABLE processes ADD COLUMN IF NOT EXISTS instruction_text TEXT;
 
 CREATE TABLE IF NOT EXISTS files (
     id SERIAL PRIMARY KEY,
@@ -64,3 +68,32 @@ CREATE TABLE IF NOT EXISTS manager_sessions (
 
 -- n8n_chat_histories создаётся n8n и используется workflow
 -- для PostgreSQL Chat Memory и состояния тестирования.
+
+-- Результаты тестов стажёра (блок «Стажёр», звено «Результат»).
+CREATE TABLE IF NOT EXISTS test_results (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    process_id INTEGER NOT NULL REFERENCES processes(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL CHECK (score >= 0),
+    total INTEGER NOT NULL CHECK (total > 0),
+    percent INTEGER NOT NULL CHECK (percent BETWEEN 0 AND 100),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_test_results_user
+ON test_results(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_test_results_process
+ON test_results(process_id);
+
+-- Отметки «инструкция изучена» (прогресс стажёра сохраняется между сессиями).
+CREATE TABLE IF NOT EXISTS learned_instructions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    process_id INTEGER NOT NULL REFERENCES processes(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, process_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_learned_instructions_user
+ON learned_instructions(user_id);
