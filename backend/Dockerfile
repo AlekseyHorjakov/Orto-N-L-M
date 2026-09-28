@@ -6,7 +6,7 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py auth.py database.py .
+COPY main.py auth.py database.py migrate.py storage.py onedrive.py onedrive_mock.json ./
 
 EXPOSE 8000
 

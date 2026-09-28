@@ -9,6 +9,8 @@ services:
       - .env
     ports:
       - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
     networks:
       - n8n_default
 
