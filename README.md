@@ -1,26 +1,31 @@
 # Orto-N-L-M
 
-> **AI-платформа для захвата экспертизы, управления корпоративными знаниями и обучения сотрудников.**
+> **AI-платформа для захвата, структурирования и передачи корпоративной экспертизы сотрудникам.**
 
-**Orto-N-L-M** превращает практический опыт сотрудников в структурированную базу знаний, инструкции, обучение и AI-помощь.
+Orto-N-L-M превращает практический опыт специалистов в структурированные процессы, рабочие инструкции, обучение и проверку знаний.
 
-**Ортона-AI** — веб-интерфейс системы. **n8n** — оркестрация автоматизаций и AI-процессов. **PostgreSQL** — единое хранилище данных.
+**Ортона-AI** — веб-интерфейс продукта.  
+**FastAPI** — backend и API.  
+**PostgreSQL** — постоянное хранилище данных.  
+**n8n** — слой AI-оркестрации и автоматизации.  
+**Process JSON** — канонический источник знаний.
 
 [![Live App](https://img.shields.io/badge/Live-Ortona--AI-0aa6a6?style=for-the-badge)](https://app.orto-n.ru)
 [![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=white)](https://react.dev/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![n8n](https://img.shields.io/badge/n8n-2.9.4-orange?style=flat-square&logo=n8n&logoColor=white)](https://n8n.io/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169e1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ed?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17.6-4169e1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![pgvector](https://img.shields.io/badge/pgvector-0.8.2-3b82f6?style=flat-square)](https://github.com/pgvector/pgvector)
+[![Docker](https://img.shields.io/badge/Docker-29.6.1-2496ed?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 ---
 
-## 🚀 Что это
+## 📌 О проекте
 
-В большинстве компаний знания о том, **как реально выполняется работа**, находятся в головах опытных сотрудников, переписках и разрозненных документах.
+Внутри компании знания о том, **как реально выполняется работа**, часто остаются в головах опытных сотрудников, переписках и отдельных документах.
 
-Orto-N-L-M строит из этого управляемую систему:
+Orto-N-L-M строит единый контур:
 
 ```text
 Эксперт
@@ -35,41 +40,52 @@ Process JSON
    │
    ├──────────────► Обучение
    │
-   ├──────────────► Тестирование
-   │
-   └──────────────► AI-помощник
+   └──────────────► Тестирование
                          │
                          ▼
-                  Знания организации
+                    Результат
 ```
 
-Ключевая идея: **AI не является источником истины.** Он структурирует и использует знания, полученные от человека и сохранённые в канонической модели процесса.
+Главный принцип:
+
+> **AI помогает извлекать, структурировать и использовать знания, но каноническим источником истины остаётся Process JSON.**
 
 ---
 
-## 🎯 Бизнес-задача
+# 🧠 Ключевая модель
 
-Система предназначена для компаний, где необходимо:
+Основной производственный контур системы:
 
-- быстро собирать экспертизу сильных сотрудников;
-- превращать опыт в стандартизированные рабочие инструкции;
-- ускорять адаптацию новых сотрудников;
-- проверять фактическое знание рабочих процессов;
-- снижать зависимость компании от отдельных носителей экспертизы;
-- давать сотрудникам AI-доступ к внутренним знаниям.
+```text
+Должность
+    ↓
+Процесс
+    ↓
+Process JSON
+    ↓
+Инструкция
+    ↓
+Обучение
+    ↓
+Тест
+    ↓
+Результат
+```
 
-По сути, Orto-N-L-M — это **цифровой слой между человеческой экспертизой и операционной работой компании**.
+Один и тот же структурированный процесс используется разными частями продукта.
+
+Это позволяет не создавать отдельные «версии правды» для инструкции, обучения и тестирования.
 
 ---
 
-# 🧠 Архитектура
+# 🏗️ Архитектура
 
 ```text
                          ┌──────────────────────┐
                          │      ОРТОНА-AI       │
                          │     Web Interface    │
                          └──────────┬───────────┘
-                                    │ HTTPS / API
+                                    │ HTTPS
                                     ▼
                          ┌──────────────────────┐
                          │   FastAPI Backend    │
@@ -84,70 +100,93 @@ Process JSON
                     └───────────────┼───────────────┘
                                     ▼
                              Process JSON
-                           Canonical Knowledge
+                          Canonical Knowledge
 ```
 
-### Принцип разделения ответственности
+### Разделение ответственности
 
 | Слой | Ответственность |
 |---|---|
-| **Ортона-AI** | пользовательский интерфейс |
-| **FastAPI** | API, аутентификация, RBAC, CRUD |
-| **n8n** | оркестрация workflow, AI-процессы, автоматизация |
+| **Ортона-AI** | Web UI, пользовательские сценарии |
+| **FastAPI** | API, аутентификация, RBAC, бизнес-операции |
 | **PostgreSQL** | постоянное хранение данных |
-| **Process JSON** | каноническая модель знаний |
-| **OpenAI** | AI-интервью и интеллектуальная обработка |
+| **n8n** | AI-workflows, автоматизация и оркестрация |
+| **OpenAI** | AI-интервью и генерация интеллектуального контента |
+| **Process JSON** | каноническая модель рабочего процесса |
 
-Такое разделение позволяет развивать UI, backend и AI-автоматизацию независимо, не превращая n8n в единственное место хранения бизнес-данных.
+n8n не является основной базой бизнес-данных: постоянное состояние продукта хранится через backend/PostgreSQL.
 
 ---
 
-# 👥 Три роли — один контур знаний
+# 👥 Пользовательские контуры
 
 ## 👨‍💼 Руководитель
 
-Управляет рабочей структурой организации:
+Руководитель работает с организационной структурой и обучением сотрудников.
 
-- должностями;
-- инструкциями;
-- процессами;
-- содержимым базы знаний.
+Сейчас доступны:
 
-Для руководителя реализован отдельный интерфейс управления. Операции изменения защищены серверной проверкой роли.
-
-## 🧑‍🔧 Специалист
-
-Передаёт системе собственную практическую экспертизу через AI-интервью.
-
-AI задаёт уточняющие вопросы, собирает детали процесса и формирует структурированный **Process JSON**.
-
-## 🎓 Стажёр
-
-Получает доступ к знаниям, необходимым для конкретной должности:
-
-1. выбирает должность;
-2. изучает инструкции;
-3. проходит тестирование;
-4. получает результат;
-5. при необходимости повторяет тест.
+- управление должностями;
+- создание и редактирование должностей;
+- удаление должностей с учётом связанных процессов;
+- работа с инструкциями;
+- просмотр результатов тестирования;
+- фильтрация результатов по сотруднику и должности;
+- журнал попыток тестирования.
 
 ---
 
-# 🧩 Process JSON — сердце системы
+## 🧑‍🔧 Специалист
 
-**Process JSON является каноническим источником знаний.**
+Специалист является источником практической экспертизы.
 
-Производные сущности — инструкции, тесты и AI-ответы — должны строиться на его основе.
+Контур включает:
 
-Пример модели:
+- AI-интервью;
+- адаптивные уточняющие вопросы;
+- текстовые ответы;
+- голосовые ответы и транскрибацию;
+- запрос необходимых фото/скриншотов;
+- формирование Process JSON;
+- сохранение процесса;
+- генерацию рабочей инструкции;
+- работу со своими процессами.
+
+---
+
+## 🎓 Стажёр
+
+Стажёр получает знания, необходимые для конкретной должности.
+
+Текущий контур:
+
+1. выбор должности;
+2. получение инструкции;
+3. отметка инструкции как изученной;
+4. генерация теста непосредственно из Process JSON;
+5. 15 вопросов в тесте;
+6. 4 варианта ответа на каждый вопрос;
+7. один правильный вариант;
+8. перемешивание вариантов;
+9. механическая проверка ответов;
+10. порог прохождения — **80%**;
+11. сохранение результата каждой попытки;
+12. восстановление прогресса после перезагрузки.
+
+Результаты тестирования доступны руководителю в отдельном журнале.
+
+---
+
+# 🧩 Process JSON
+
+Process JSON — **сердце системы и канонический источник знаний**.
+
+Упрощённая модель:
 
 ```json
 {
   "metadata": {
-    "interviewee": "",
-    "role": "",
     "position": "",
-    "employee_position": "",
     "process": ""
   },
   "goal": "",
@@ -166,24 +205,33 @@ AI задаёт уточняющие вопросы, собирает детал
 }
 ```
 
-Это важное архитектурное решение: **знания организации не зависят от конкретного интерфейса**.
+Производные сущности не должны становиться самостоятельными источниками фактов.
+
+Например:
+
+```text
+Process JSON
+    ├──► HTML-инструкция
+    ├──► Обучение
+    └──► Тест
+```
 
 ---
 
 # 🤖 AI Interview
 
-Один из ключевых контуров системы — автоматизированное интервью специалиста.
+AI-интервью предназначено для извлечения практической экспертизы специалиста.
 
-AI не просто просит «описать работу». Интервью строится адаптивно: следующие вопросы зависят от уже полученной информации и направлены на выявление операционных деталей.
+Система не ограничивается просьбой «рассказать, как вы работаете». Следующие вопросы формируются с учётом уже полученной информации и направлены на получение операционных деталей.
 
-В результате система получает структурированную модель процесса, которую можно использовать дальше без повторного интервью.
+Общий контур:
 
 ```text
 Ответ специалиста
        ↓
-AI уточняет
+AI анализирует
        ↓
-Следующий вопрос
+Уточняющий вопрос
        ↓
 Нормализация
        ↓
@@ -194,103 +242,119 @@ Process JSON
 Инструкция / обучение / тест
 ```
 
-Поддерживается работа с текстовыми, голосовыми ответами и необходимыми визуальными материалами.
+---
+
+# 🧪 Тестирование
+
+Тестирование строится по конкретному Process JSON.
+
+Ключевые правила:
+
+- вопросы не хранятся жёстко во frontend;
+- тест генерируется на основании процесса;
+- на каждый вопрос — 4 уникальных варианта;
+- правильный вариант только один;
+- варианты перемешиваются backend;
+- проверка выполняется по признаку правильного ответа, а не по его позиции;
+- проходной результат — 80%;
+- каждая попытка сохраняется отдельно;
+- руководитель видит историю попыток.
+
+Это позволяет использовать один механизм тестирования для разных должностей и процессов.
 
 ---
 
 # 🔐 Backend и безопасность
 
-Текущий проект уже содержит отдельный backend на **FastAPI**.
+Backend построен на FastAPI.
 
 Реализованы:
 
 - JWT-аутентификация;
-- проверка пароля через bcrypt;
-- серверная авторизация по ролям;
+- bcrypt для проверки паролей;
+- серверная проверка ролей;
 - защищённые API endpoints;
-- CRUD для рабочих сущностей;
-- CORS для веб-приложения;
-- подключение к PostgreSQL;
-- Docker-деплой backend.
+- RBAC;
+- контроль доступа к процессам;
+- PostgreSQL;
+- Docker-деплой.
 
-### RBAC
+**Frontend не является границей безопасности.**
 
-Права определяются **на сервере**, а не только интерфейсом.
-
-Например, наличие кнопки «Удалить» в UI не является механизмом безопасности: backend самостоятельно проверяет роль пользователя перед выполнением защищённой операции.
+Если кнопка скрыта в интерфейсе, это не означает, что операция защищена. Сервер самостоятельно проверяет права пользователя перед выполнением защищённого действия.
 
 ---
 
-# 🗄️ Data model
+# 🗄️ Данные
 
-Основные сущности PostgreSQL:
+Основные сущности:
 
 ```text
 users
   │
-  ├── roles
+  ├──► positions
+  │       │
+  │       └──► processes
+  │                │
+  │                └──► process_json
   │
-  ├── interview_sessions
+  ├──► interview_sessions
   │
-  └── manager_sessions
-
-positions
+  ├──► test_results
   │
-  └── processes
-          │
-          └── process_json
+  └──► learned_instructions
 
 files
 ```
 
-Процессы связаны с должностями, а `process_json` содержит структурированное описание рабочего процесса.
+Ключевые таблицы:
+
+| Таблица | Назначение |
+|---|---|
+| `users` | пользователи и роли |
+| `positions` | должности |
+| `processes` | процессы и Process JSON |
+| `files` | метаданные файлов |
+| `interview_sessions` | состояние AI-интервью |
+| `test_results` | история попыток тестирования |
+| `learned_instructions` | изученные инструкции сотрудника |
 
 ---
 
 # 🖥️ Ортона-AI
 
-Веб-интерфейс создан как самостоятельный продуктовый слой системы.
+Ортона-AI — основной пользовательский интерфейс продукта.
 
-### Реализовано
+Веб-приложение включает:
 
-- современный responsive UI;
-- авторизация;
-- ролевая навигация;
+- авторизацию;
+- ролевую навигацию;
 - кабинет руководителя;
-- управление должностями;
-- управление инструкциями;
 - кабинет специалиста;
-- AI-интервью;
-- интерфейс стажёра;
-- обучение по инструкциям;
-- тестирование знаний;
+- контур стажёра;
+- должности;
+- инструкции;
+- обучение;
+- тестирование;
 - результаты тестирования;
-- повторное прохождение теста;
-- AI-раздел «Задать вопрос»;
-- работа с вложениями;
-- единая визуальная система интерфейса.
+- работу с AI.
 
-### Screenshots
+### Live
 
-#### Авторизация
+**Ortona-AI:** https://app.orto-n.ru
 
-![Ortona-AI — авторизация](docs/screenshots-web/login.png)
+---
 
-#### Руководитель
+# 📸 Визуальная часть
 
-![Ortona-AI — руководитель](docs/screenshots-web/manager.png)
+В репозитории сохранены материалы, отражающие ключевые этапы продукта:
 
-#### Специалист
-
-![Ortona-AI — специалист](docs/screenshots-web/specialist.png)
-
-#### Стажёр
-
-![Ortona-AI — стажёр](docs/screenshots-web/trainee.png)
-
-#### AI-помощник
-
-![Ortona-AI — задать вопрос](docs/screenshots-web/question.png)
+- [Workflow](Workflow.jpg)
+- [AI-интервью](interview.jpg)
+- [Process JSON](process-json.jpg)
+- [Инструкция](instruction.jpg)
+- [Голосовой ввод](voice.jpg)
+- [Работа с изображениями](photo.jpg)
 
 ---
 
@@ -309,7 +373,7 @@ files
 - Python
 - FastAPI
 - SQLAlchemy
-- PostgreSQL driver
+- psycopg
 - JWT
 - bcrypt
 
@@ -317,14 +381,20 @@ files
 
 - OpenAI API
 - `gpt-4.1-mini`
-- n8n **2.9.4 Self Hosted**
+- n8n 2.9.4 Self Hosted
+
+### Database
+
+- PostgreSQL 17.6
+- pgvector 0.8.2
 
 ### Infrastructure
 
 - Ubuntu Server 24.04 LTS
-- Docker
-- PostgreSQL 16
-- Traefik
+- Docker Engine 29.6.1
+- Docker Compose 2.39.x
+- Caddy
+- HTTPS / Let's Encrypt
 
 ---
 
@@ -333,133 +403,174 @@ files
 ```text
 Orto-N-L-M/
 │
-├── backend/                # FastAPI backend
-│   ├── main.py             # API
-│   ├── auth.py             # JWT / RBAC
-│   ├── database.py         # DB connection
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   └── requirements.txt
+├── backend/                 # FastAPI backend
 │
 ├── frontend/
-│   └── ortona-ai/          # React web application
+│   └── ortona-ai/           # React web application
 │
-├── sql/                    # database schema
-├── docs/                   # project documentation / screenshots
-├── prompts/                # AI prompts
-├── data/                   # project data
+├── sql/                     # database schema
+├── workflows/               # n8n workflows
+├── prompts/                 # AI prompts
+├── docs/                    # documentation
+├── data/                    # project data
 │
-├── PROJECT.md              # architectural contract
+├── deploy.ps1               # deployment script
+├── PROJECT.md               # project contract
+├── ARCHITECTURE_REVIEW.md   # architecture review
 ├── README.md
 └── LICENSE
 ```
 
 ---
 
-# 🔄 Current status
+# 🚀 Deployment
 
-### Completed
+Проект содержит PowerShell-скрипт автоматического деплоя:
 
-- [x] core Orto-N-L-M architecture;
-- [x] Process JSON model;
-- [x] AI interview workflow;
-- [x] process and instruction generation;
-- [x] manager role;
-- [x] specialist role;
-- [x] trainee role;
-- [x] learning and testing contour;
-- [x] React web interface;
+```powershell
+.\deploy.ps1
+```
+
+Deployment включает сборку frontend, подготовку backend и выполнение миграций.
+
+Production-окружение работает в Docker.
+
+> Production secrets, API keys, passwords and live credentials не должны попадать в Git.
+
+---
+
+# 📊 Текущий статус
+
+**Срез: 28 сентября 2026.**
+
+### Готово
+
+- [x] базовая архитектура Orto-N-L-M;
+- [x] Process JSON;
+- [x] AI-интервью;
+- [x] генерация инструкций;
+- [x] Web UI Ortona-AI;
 - [x] FastAPI backend;
-- [x] JWT authentication;
-- [x] server-side RBAC;
-- [x] PostgreSQL integration;
-- [x] frontend ↔ backend API;
-- [x] backend Docker deployment;
-- [x] web application deployment at `app.orto-n.ru`;
-- [x] manager instruction creation through the web interface.
+- [x] JWT-аутентификация;
+- [x] RBAC;
+- [x] PostgreSQL;
+- [x] Docker deployment;
+- [x] контур руководителя;
+- [x] контур специалиста;
+- [x] контур стажёра;
+- [x] обучение по инструкциям;
+- [x] тестирование по Process JSON;
+- [x] сохранение результатов тестирования;
+- [x] журнал результатов для руководителя;
+- [x] восстановление прогресса стажёра.
 
-### In progress
+### В работе
 
-- [ ] final integration of web application with the existing n8n automation layer;
-- [ ] unified end-to-end execution of AI workflows from the web interface.
+- [ ] финализация и сквозная проверка функции **«Задать вопрос»**;
+- [ ] окончательная стабилизация всех web-сценариев после перехода с Telegram-интерфейса.
 
-### Next
+### Следующий этап
 
+- [ ] полноценный AI knowledge assistant;
 - [ ] RAG / vector search;
-- [ ] expanded AI knowledge assistant;
-- [ ] learning analytics;
-- [ ] deeper automation of organisational processes.
+- [ ] расширенная аналитика обучения;
+- [ ] автоматизация дополнительных организационных процессов.
 
 ---
 
-# 🧠 Engineering decisions
+# 🧭 Инженерные принципы
 
-### 1. Process JSON is the source of truth
+### 1. Process JSON — source of truth
 
-The system separates canonical knowledge from presentation layers. UI, instructions, tests and AI responses should consume structured knowledge rather than inventing their own facts.
+Каноническое знание хранится в структурированном процессе.
 
-### 2. Deterministic routing over AI routing
+### 2. Backend отвечает за безопасность
 
-Where a workflow decision can be represented as a deterministic rule, the system prefers explicit routing over asking an LLM to decide what should happen next.
+RBAC и проверки доступа выполняются на сервере.
 
-### 3. Backend owns permissions
+### 3. Детерминированная логика важнее AI там, где она возможна
 
-Authorization is enforced server-side. Frontend visibility is a UX concern, not a security boundary.
+Если действие можно определить обычным правилом, система не передаёт его решение LLM.
 
-### 4. n8n is an orchestrator
+### 4. n8n — оркестратор
 
-n8n is used for automation and AI workflow execution. Persistent business data belongs in PostgreSQL and API access is handled by the backend.
+n8n отвечает за AI-workflows и автоматизацию. Основные бизнес-данные принадлежат backend/PostgreSQL.
 
-### 5. Web is the product interface
+### 5. Web — текущий продуктовый интерфейс
 
-Telegram was used during the earlier validation stage. The current product direction is the Ortona-AI web application.
+Telegram использовался на раннем этапе валидации. Текущий продукт развивается вокруг Ortona-AI.
 
----
+### 6. Работающая архитектура не переписывается без причины
 
-# 👨‍💻 About the project
-
-Orto-N-L-M is a practical AI engineering project focused on combining:
-
-- AI agents;
-- workflow automation;
-- backend development;
-- role-based access control;
-- PostgreSQL data modelling;
-- React interfaces;
-- Docker infrastructure;
-- corporate knowledge management.
-
-The goal is not to demonstrate a single AI prompt or a collection of disconnected automations.
-
-**The goal is to build a complete AI product — from expert knowledge capture to a working employee experience.**
+Изменения должны сохранять подтверждённые рабочие контуры и расширять их без необоснованной перестройки системы.
 
 ---
 
-# 🌐 Live
+# 📚 Документация
 
-**Ortona-AI:** https://app.orto-n.ru
+В репозитории доступны:
 
-**GitHub:** https://github.com/AlekseyHorjakov/Orto-N-L-M
+- [PROJECT.md](PROJECT.md) — контракт проекта и архитектурные правила;
+- [ARCHITECTURE_REVIEW.md](ARCHITECTURE_REVIEW.md) — архитектурный обзор;
+- [docs/MVP_STATUS.md](docs/MVP_STATUS.md) — статус MVP;
+- [docs/WORKFLOW_CURRENT.md](docs/WORKFLOW_CURRENT.md) — описание текущего workflow;
+- [docs/MANAGER_INSTRUCTIONS.md](docs/MANAGER_INSTRUCTIONS.md) — документация по контуру руководителя.
 
 ---
 
 # 🔒 Security
 
-This repository is public. Secrets and credentials are intentionally excluded from version control.
+Репозиторий публичный.
 
-Never commit:
+Никогда не добавляй в Git:
 
 - API keys;
-- passwords;
+- пароли;
 - JWT secrets;
 - Telegram bot tokens;
-- private credentials;
-- production `.env` files.
+- production `.env`;
+- приватные credentials;
+- реальные connection strings с паролями.
 
-See `.gitignore` for the current exclusions.
+Используй `.env.example` как шаблон конфигурации.
+
+---
+
+# 👨‍💻 Про проект
+
+Orto-N-L-M — не демонстрация отдельного промпта или набора разрозненных AI-автоматизаций.
+
+Цель проекта — построить **полноценный AI-продукт**, который связывает:
+
+```text
+Человеческая экспертиза
+        ↓
+AI-интервью
+        ↓
+Структурированные знания
+        ↓
+Рабочие инструкции
+        ↓
+Обучение
+        ↓
+Проверка знаний
+        ↓
+Результат
+```
+
+Иными словами:
+
+> **от знаний конкретного специалиста — к воспроизводимому рабочему процессу организации.**
+
+---
+
+# 🌐 Links
+
+**Live:** https://app.orto-n.ru  
+**GitHub:** https://github.com/AlekseyHorjakov/Orto-N-L-M
 
 ---
 
 # 📄 License
 
-MIT — see [LICENSE](LICENSE).
+MIT — см. [LICENSE](LICENSE).
