@@ -15,7 +15,6 @@ Orto-N-L-M превращает практический опыт специал
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![n8n](https://img.shields.io/badge/n8n-2.9.4-orange?style=flat-square&logo=n8n&logoColor=white)](https://n8n.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17.6-4169e1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![pgvector](https://img.shields.io/badge/pgvector-0.8.2-3b82f6?style=flat-square)](https://github.com/pgvector/pgvector)
 [![Docker](https://img.shields.io/badge/Docker-29.6.1-2496ed?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
@@ -386,7 +385,6 @@ files
 ### Database
 
 - PostgreSQL 17.6
-- pgvector 0.8.2
 
 ### Infrastructure
 
@@ -472,7 +470,6 @@ Production-окружение работает в Docker.
 ### Следующий этап
 
 - [ ] полноценный AI knowledge assistant;
-- [ ] RAG / vector search;
 - [ ] расширенная аналитика обучения;
 - [ ] автоматизация дополнительных организационных процессов.
 
