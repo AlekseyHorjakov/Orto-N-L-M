@@ -76,7 +76,7 @@ Write-Host "[2/6] Подготовка production..." -ForegroundColor Yellow
 Invoke-SSH "mkdir -p $BACKEND_REMOTE $FRONTEND_REMOTE"
 
 # Backend: удалить старые файлы, кроме production .env
-Invoke-SSH "find $BACKEND_REMOTE -mindepth 1 -maxdepth 1 ! -name '.env' -exec rm -rf {} +"
+Invoke-SSH "find $BACKEND_REMOTE -mindepth 1 -maxdepth 1 ! -name '.env' ! -name 'storage' -exec rm -rf {} +"
 
 # Frontend: полностью очистить старый dist
 Invoke-SSH "find $FRONTEND_REMOTE -mindepth 1 -maxdepth 1 -exec rm -rf {} +"
